@@ -63,6 +63,9 @@ Now install this library.
 ```commandline
 pip install -e .
 ```
+
+Additional set of dependencies： [pyserini](https://github.com/castorini/pyserini) and [fairseq](https://github.com/facebookresearch/fairseq)
+
 ## Download
 We make available both model checkpoints and pre-built indices for both Natural Questions and [the KILT benchmark](https://github.com/facebookresearch/KILT):
 * [Natural Questions (`SEAL_NQ.tar.gz`)](http://dl.fbaipublicfiles.com/seal/SEAL_NQ.tar.gz)
