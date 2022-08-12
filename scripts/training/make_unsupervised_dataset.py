@@ -57,7 +57,7 @@ def preprocess_file(
             next(f)
             
             f = csv.reader(f, delimiter='\t', quotechar='"')
-            f = (l for l in f if len(l) == 3)
+            f = (l for l in f if len(l) == 3)   # fields: id, text, title
             
             for _, text, title in tqdm.tqdm(f):
                 
@@ -80,6 +80,7 @@ def preprocess_file(
                 failures = 0
                 while sampled < num_title_samples and failures < 10:
 
+                    # 50 per to predict title from text
                     if random.random() > 0.5:
                         len_a = random.randint(min_length_input, max_length_input)
                         idx_a = random.randint(0, max(0, len(tokens)-len_a))
@@ -87,13 +88,14 @@ def preprocess_file(
                         if mark_pretraining:
                             a += " || p"
                         b = title.strip() + " " + delimiter
-                    
+
+                    # 50 per to predict text(filtered) from title
                     else:
 
                         len_b = random.randint(min_length_output, max_length_output)
                         idx_b = random.randint(0, max(0, len(tokens)-len_b))
 
-                        if not is_good(tokens[idx_b]):
+                        if not is_good(tokens[idx_b]):  # not start with stop token or ?!... or (){}{}
                             failures += 1
                             continue
 
@@ -105,6 +107,7 @@ def preprocess_file(
                     yield a, b
                     sampled += 1
 
+                # predict other span from sampled span
                 sampled = 0
                 failures = 0
                 while sampled < num_samples and failures < 10:
@@ -129,8 +132,7 @@ def preprocess_file(
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('input')
-    parser.add_argument('source')
-    parser.add_argument('target')
+    parser.add_argument('output')
     parser.add_argument('--delim', default="@@")
     parser.add_argument('--format', choices=['kilt', 'dpr'], default='dpr')
     parser.add_argument('--min_length_input', type=int, default=10)
@@ -146,7 +148,7 @@ def parse_args():
 def main():
     args = parse_args()
 
-    with open(args.source, 'w', 2 ** 20) as src, open(args.target, 'w', 2 ** 20) as tgt:
+    with open(args.output + '.source', 'w', 2 ** 20) as src, open(args.output + '.target', 'w', 2 ** 20) as tgt:
     
         for i, (s, t) in enumerate(preprocess_file(
             args.input,
