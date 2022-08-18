@@ -47,4 +47,5 @@ fairseq-train \
   --skip-invalid-size-inputs-valid-test \
   --log-format json \
   --log-interval 100 \
-  --patience 5
+  --patience 5 \
+  --save-dir checkpoints_trivia

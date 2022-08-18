@@ -9,6 +9,7 @@ import csv
 import random
 import tqdm
 
+csv.field_size_limit(500 * 1024 * 1024)
 from nltk.corpus import stopwords
 
 banned = {
@@ -47,7 +48,8 @@ def preprocess_file(
     min_length_output=10, 
     max_length_output=10,
     full_doc_n=0,
-    mark_pretraining=False,  
+    mark_pretraining=False,
+    truncation = False
     ):
     
     if format == 'kilt':
@@ -70,7 +72,10 @@ def preprocess_file(
                 tokens = text.split()
 
                 for _ in range(full_doc_n):
-                    a = text.strip() + " || title"
+                    if truncation:
+                        a = text.strip()[:512] + " || title"
+                    else:
+                        a = text.strip() + " || title"
                     if mark_pretraining:
                         a += " || p"
                     b = title.strip() + " " + delimiter
@@ -143,6 +148,7 @@ def parse_args():
     parser.add_argument('--num_title_samples', type=int, default=3)
     parser.add_argument('--full_doc_n', type=int, default=1)
     parser.add_argument('--mark_pretraining', action="store_true")
+    parser.add_argument('--truncation', action="store_true")
     return parser.parse_args()
 
 def main():
@@ -161,7 +167,8 @@ def main():
             max_length_input=args.max_length_input,
             min_length_output=args.min_length_output,
             max_length_output=args.max_length_output,
-            mark_pretraining=args.mark_pretraining,         
+            mark_pretraining=args.mark_pretraining,
+            truncation=args.truncation
         )):
 
             if random.random() < 0.1:

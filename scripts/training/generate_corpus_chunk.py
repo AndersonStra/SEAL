@@ -12,6 +12,17 @@ def preprocess(input_path, format):
                 title = ctx[0]
                 text = ' '.join(ctx[1]).strip()
                 yield [text, title]
+    elif format == 'triviaqa':
+        with open(input_path, 'r') as f:
+            data = json.load(f)
+        data = data['Data']
+        for sample in tqdm.tqdm(data):
+            supporting_titles = {i['Title']: i['Filename'] for i in sample['EntityPages']}
+            for title, ctx in supporting_titles.items():
+                title = title
+                with open('/home/yangding/dataset/trivialqa/evidence/wikipedia/' + ctx, 'r') as f:
+                    text = f.read().replace('\n', ' ')
+                yield [text, title]
     else:
         raise NotImplementedError
 

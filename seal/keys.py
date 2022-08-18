@@ -217,8 +217,8 @@ def aggregate_evidence(ngrams_and_scores: List[Tuple[List[int], float]], unigram
             sco = 0.0
         elif use_fm_index_frequency:
             sr -= 1e-10
-            sr *= (1.0 - length_penalty) ** (len(ngram) - 1.0)
-            snr = math.log((count + smoothing) / (ntokens + smoothing))
+            sr *= (1.0 - length_penalty) ** (len(ngram) - 1.0)   # P(n|q)
+            snr = math.log((count + smoothing) / (ntokens + smoothing))   # P(n)
             sco = \
                 (sr + math.log(1 - math.exp(snr))) - \
                 (snr + math.log(1 - math.exp(sr)))
@@ -364,7 +364,7 @@ def aggregate_evidence(ngrams_and_scores: List[Tuple[List[int], float]], unigram
         doc_info[0] = current_score
 
     to_fully_score = sorted(first_stage.items(),
-                            key=lambda x: (1.0 - single_key) * (-x[1][0]) + single_key * (-x[1][2][1]))[:n_docs_complete_score]
+                            key=lambda x: (1.0 - single_key) * (-x[1][0]) + single_key * (-x[1][2][1]))[:n_docs_complete_score]    # sorted by doc_score
     results = defaultdict(lambda:
                           [
                               0.0,  # score
