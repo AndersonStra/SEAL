@@ -3,6 +3,7 @@ import json
 import argparse
 import tqdm
 
+title_set = set()
 def preprocess(input_path, format):
     if format == 'hotpotqa':
         with open(input_path, 'r') as f:
@@ -10,7 +11,10 @@ def preprocess(input_path, format):
         for sample in tqdm.tqdm(data):
             for i, ctx in enumerate(sample['context']):
                 title = ctx[0]
+                if title in title_set:
+                    continue
                 text = ' '.join(ctx[1]).strip()
+                title_set.add(title)
                 yield [text, title]
     elif format == 'triviaqa':
         with open(input_path, 'r') as f:
@@ -22,6 +26,9 @@ def preprocess(input_path, format):
                 title = title
                 with open('/home/yangding/dataset/trivialqa/evidence/wikipedia/' + ctx, 'r') as f:
                     text = f.read().replace('\n', ' ')
+                if title in title_set:
+                    continue
+                title_set.add(title)
                 yield [text, title]
     else:
         raise NotImplementedError

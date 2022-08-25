@@ -73,7 +73,7 @@ def preprocess_file(
 
                 for _ in range(full_doc_n):
                     if truncation:
-                        a = text.strip()[:512] + " || title"
+                        a = ' '.join(text.strip().split()[:100]) + " || title"
                     else:
                         a = text.strip() + " || title"
                     if mark_pretraining:
