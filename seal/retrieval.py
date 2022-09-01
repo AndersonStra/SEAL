@@ -690,6 +690,51 @@ class SEALSearcher:
         else:
             return retrieved
 
+    def batch_generate_query(self, queries, k: int = 10, added_documents=None, detokenize=None) -> List[List[SEALDocument]]:
+        if detokenize is None:
+            detokenize = self.detokenize
+        retrieved = []
+        keys = self.batch_generate_keys(queries)
+        if added_documents is not None:
+            if self.unigram_scores:
+                keys = ((kk, us, added_documents[i]) for i, (kk, us) in enumerate(keys))
+            else:
+                keys = ((kk, None, added_documents[i]) for i, kk in enumerate(keys))
+
+        # results, keys = zip(*self.batch_retrieve_from_keys(keys))
+        #
+        # keys = list({k for kk in keys for k in kk})
+        # vals = self.bart_tokenizer.batch_decode([list(k) for k in keys], clean_up_tokenization_spaces=False)
+        # keys = {k: (v, self.fm_index.get_count(list(k))) for k, v in zip(keys, vals)}
+
+        for query, res in zip(queries, results):
+            docs = []
+            for idx, (score, kk, _, full, _) in islice(res.items(), k):
+                doc = SEALDocument(
+                    idx,
+                    score,
+                    self.fm_index,
+                    self.bart_tokenizer,
+                    delim1=self.title_eos_token_id,
+                    delim2=self.code_eos_token_id,
+                    keys=None,
+                    query=query
+                )
+                if self.include_keys:
+                    for k, _ in kk:
+                        if k not in keys:
+                            keys[k] = (self.bart_tokenizer.decode(list(k), clean_up_tokenization_spaces=False),
+                                       self.fm_index.get_count(list(k)))
+                    kk = [(*keys[k], s) for k, s in kk]
+                    doc.keys = kk
+                doc._raw_tokens = full
+                docs.append(doc)
+            retrieved.append(docs)
+        if detokenize:
+            return self.detokenize_retrieved(retrieved)
+        else:
+            return retrieved
+
     def detokenize_retrieved(self, retrieved):
         flat = [d for dd in retrieved for d in dd]
         batch_tokens = []
