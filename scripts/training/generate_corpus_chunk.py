@@ -8,6 +8,9 @@ def preprocess(input_path, format):
     if format == 'hotpotqa':
         with open(input_path, 'r') as f:
             data = json.load(f)
+        with open('/home/yangding/dataset/hotpotqa/hotpot_dev.json', 'r') as f:
+            data_val = json.load(f)
+        data.extend(data_val)
         for sample in tqdm.tqdm(data):
             for i, ctx in enumerate(sample['context']):
                 title = ctx[0]
@@ -30,6 +33,19 @@ def preprocess(input_path, format):
                     continue
                 title_set.add(title)
                 yield [text, title]
+    elif format == 'NQ320k':
+        with open(input_path, 'r') as f:
+            data = json.load(f)
+        with open('/home/yangding/dataset/NQ/nq_dev.json', 'r') as f:
+            dev = json.load(f)
+        data.extend(dev)
+        for sample in tqdm.tqdm(data):
+            text = sample['doc'].strip()
+            title = sample['title'].strip()
+            if title in title_set:
+                continue
+            title_set.add(title)
+            yield [text, title]
     else:
         raise NotImplementedError
 
@@ -38,7 +54,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('input')
     parser.add_argument('output')
-    parser.add_argument('--format', choices=['hotpotqa', 'triviaqa'], default='hotpotqa')
+    parser.add_argument('--format', choices=['hotpotqa', 'triviaqa', 'NQ320k'], default='hotpotqa')
     return parser.parse_args()
 
 def main():

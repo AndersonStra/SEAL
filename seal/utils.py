@@ -47,4 +47,4 @@ def load_state_dict_from_fairseq_checkpoint(model, path):
     _remove_ignore_keys_(state_dict)
     if hasattr(model, "lm_head"):
         model.lm_head = _make_linear_from_emb(model.model.shared)
-    model.model.load_state_dict(state_dict)
+    model.model.load_state_dict(state_dict, strict=False)

@@ -46,6 +46,56 @@ def _get_process_memory():
     process = psutil.Process(os.getpid())
     return process.memory_info().rss
 
+def batch_generate_queries(searcher, queries, constrained_generation=True):
+    if searcher.add_query_to_keys:
+        _init_word_tokenizer()
+
+    def process_batch(inputs):
+
+        inputs = [(" " + q.strip()) if searcher.prepend_space else q.strip() for q in inputs]
+        input_tokens = searcher.bart_tokenizer(inputs, padding=False)['input_ids']
+
+        if searcher.decode_body:
+
+            batch_str = inputs
+            if searcher.use_markers:
+                batch_str = [i + " || body" for i in batch_str]
+            if searcher.value_conditioning:
+                batch_str = [i + " || +" for i in batch_str]
+
+            batch = searcher.bart_tokenizer(batch_str, return_tensors='pt', padding=True, truncation=True)
+            batch = {k: v.to(searcher.device) for k, v in batch.items()}
+
+            found_keys = fm_index_generate(
+                searcher.bart_model, searcher.fm_index,
+                **batch,
+                min_length=searcher.length,
+                max_length=searcher.length,
+                length_penalty=searcher.length_penalty,
+                num_beams=searcher.beam,
+                disable_fm_index=not constrained_generation,
+                diverse_bs_groups=searcher.diverse_bs_groups,
+                diverse_bs_penalty=searcher.diverse_bs_penalty,
+                stop_at_count=searcher.stop_at_count,
+                keep_history=False,
+                topk=searcher.topk,
+            )
+
+            for fk in found_keys:
+                fk[:] = [(s, k[1:] if k[0] in searcher.strip_token_ids else k) for s, k in fk if k]
+                fk[:] = [(s, k[1:] if k[0] in searcher.strip_token_ids else k) for s, k in fk if k]
+                fk[:] = [(s, k[:-1] if k[-1] in searcher.strip_token_ids else k) for s, k in fk if k]
+                if searcher.min_length > 0:
+                    fk[:] = [[s, k] for s, k in fk if len(k) == searcher.min_length]
+                fk[:] = [[s, searcher.bart_tokenizer.decode(k, skip_special_tokens=True, clean_up_tokenization_spaces=False).strip().split('?', 1)[0]] for s, k in fk if k]
+            return found_keys
+    with tqdm.tqdm(total=len(queries), desc="Generating queries", disable=not searcher.progress) as bar:
+        batches = ichunked(queries, searcher.batch_size)
+        for batch in batches:
+            for instance in process_batch(batch):
+                bar.update()
+                yield instance
+
 def batch_generate_keys(searcher, queries, constrained_generation=True):
 
     if searcher.add_query_to_keys:
@@ -690,50 +740,17 @@ class SEALSearcher:
         else:
             return retrieved
 
-    def batch_generate_query(self, queries, k: int = 10, added_documents=None, detokenize=None) -> List[List[SEALDocument]]:
+    def batch_generate(self, queries, k: int = 10, added_documents=None, detokenize=None) -> List[List[SEALDocument]]:
         if detokenize is None:
             detokenize = self.detokenize
         retrieved = []
-        keys = self.batch_generate_keys(queries)
-        if added_documents is not None:
-            if self.unigram_scores:
-                keys = ((kk, us, added_documents[i]) for i, (kk, us) in enumerate(keys))
-            else:
-                keys = ((kk, None, added_documents[i]) for i, kk in enumerate(keys))
+        keys = self.batch_generate_queries(queries)
+        for k in keys:
+            retrieved.append(k)
+        return retrieved
 
-        # results, keys = zip(*self.batch_retrieve_from_keys(keys))
-        #
-        # keys = list({k for kk in keys for k in kk})
-        # vals = self.bart_tokenizer.batch_decode([list(k) for k in keys], clean_up_tokenization_spaces=False)
-        # keys = {k: (v, self.fm_index.get_count(list(k))) for k, v in zip(keys, vals)}
 
-        for query, res in zip(queries, results):
-            docs = []
-            for idx, (score, kk, _, full, _) in islice(res.items(), k):
-                doc = SEALDocument(
-                    idx,
-                    score,
-                    self.fm_index,
-                    self.bart_tokenizer,
-                    delim1=self.title_eos_token_id,
-                    delim2=self.code_eos_token_id,
-                    keys=None,
-                    query=query
-                )
-                if self.include_keys:
-                    for k, _ in kk:
-                        if k not in keys:
-                            keys[k] = (self.bart_tokenizer.decode(list(k), clean_up_tokenization_spaces=False),
-                                       self.fm_index.get_count(list(k)))
-                    kk = [(*keys[k], s) for k, s in kk]
-                    doc.keys = kk
-                doc._raw_tokens = full
-                docs.append(doc)
-            retrieved.append(docs)
-        if detokenize:
-            return self.detokenize_retrieved(retrieved)
-        else:
-            return retrieved
+
 
     def detokenize_retrieved(self, retrieved):
         flat = [d for dd in retrieved for d in dd]
@@ -761,6 +778,9 @@ class SEALSearcher:
 
     def batch_generate_keys(self, queries):
         return batch_generate_keys(self, queries, constrained_generation=not self.free_generation)
+
+    def batch_generate_queries(self, queries):
+        return batch_generate_queries(self, queries, constrained_generation=not self.free_generation)
 
     def retrieve_from_keys(self, keys):
         

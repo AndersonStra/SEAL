@@ -3,7 +3,7 @@
 #
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
-
+import json
 import random
 
 from more_itertools import chunked
@@ -64,20 +64,10 @@ if __name__ == "__main__":
 
     query_iterator = get_query_iterator(args.topics, TopicsFormat(args.topics_format))
 
-    output_writer = get_output_writer(
-        args.output,
-        OutputFormat(args.output_format),
-        "w",
-        max_hits=args.hits,
-        tag="SEAL",
-        topics=query_iterator.topics,
-        use_max_passage=args.max_passage,
-        max_passage_delimiter=args.max_passage_delimiter,
-        max_passage_hits=args.max_passage_hits,
-    )
+    output_writer = open('temp_test.json', 'w')
 
     if args.debug:
-        query_iterator.order = query_iterator.order[:2000]
+        query_iterator.order = query_iterator.order[:20]
         query_iterator.topics = {topic: query_iterator.topics[topic] for topic in query_iterator.order}
 
     if args.keep_samples is not None and args.keep_samples < len(query_iterator.order):
@@ -91,10 +81,12 @@ if __name__ == "__main__":
     with output_writer:
         if args.chunked <= 0:
             topic_ids, texts = zip(*query_iterator)
-            for topic_id, hits in zip(topic_ids, searcher.batch_search(texts, k=args.hits)):
-                output_writer.write(topic_id, hits)
+            for topic_id, hits in zip(topic_ids, searcher.batch_generate(texts, k=args.hits)):
+                json.dump({topic_id: hits}, output_writer)
+                output_writer.write('\n')
         else:
             for batch_query_iterator in chunked(query_iterator, args.chunked):
                 topic_ids, texts = zip(*batch_query_iterator)
-                for topic_id, hits in zip(topic_ids, searcher.batch_search(texts, k=args.hits)):
-                    output_writer.write(topic_id, hits)
+                for topic_id, hits in zip(topic_ids, searcher.batch_generate(texts, k=args.hits)):
+                    json.dump({topic_id: hits}, output_writer)
+                    output_writer.write('\n')

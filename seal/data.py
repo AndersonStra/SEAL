@@ -122,7 +122,8 @@ class KiltWriter(OutputWriter):
                     end_paragraph_id = int(docid[2])
                 title, body = hit.text()
                 provenance.append({
-                    "wikipedia_id": wikipedia_id, 
+                    "wikipedia_id": wikipedia_id,
+                    "title": title,
                     "start_paragraph_id": start_paragraph_id,  
                     "end_paragraph_id": end_paragraph_id, 
                     "text": f'{title} @@ {body}',
